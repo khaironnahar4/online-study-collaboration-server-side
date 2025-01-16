@@ -29,6 +29,36 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+
+    const database = client.db('online-tech');
+    const studySessionCollection = database.collection('study-session');
+    const usersCollection = database.collection('users');
+
+    // users
+    app.get('/users', async (req, res)=>{
+        const role = req.query.role;
+        let query = {};
+        if(role){
+            query = {role: role}
+        }
+        const result = await usersCollection.find(query).toArray();
+        res.send(result)
+    })
+
+    // study session
+    app.get('/study-sessions', async (req, res)=>{
+        const limit = parseInt(req.query.limit) || null;
+        let cursor = studySessionCollection.find();
+
+        if(limit) {
+            cursor = cursor.limit(limit)
+        }
+
+        const result = await cursor.toArray();
+        res.send(result);
+    })
+
+
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     // Send a ping to confirm a successful connection
