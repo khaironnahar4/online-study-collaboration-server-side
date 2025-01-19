@@ -76,6 +76,12 @@ async function run() {
       res.send(result);
     });
 
+    app.post("/study-sessions", async (req, res)=>{
+      const data = req.body;
+      const result = await studySessionCollection.insertOne(data);
+      res.send(result)
+    })
+
     // booked session
     app.get("/booked-sessions", async (req, res) => {
       const std_email = req.query.std_email;
