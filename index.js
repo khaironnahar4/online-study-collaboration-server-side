@@ -36,10 +36,21 @@ async function run() {
     // users
     app.get("/users", async (req, res) => {
       const role = req.query.role;
+      const search = req.query.search || null;
       let query = {};
       if (role) {
         query = { role: role };
       }
+      if(search){
+        query = {
+          $or:[ 
+           { name: new RegExp(search, 'i')},
+           { email: new RegExp(search, 'i')}
+          ]
+        }
+      }
+      console.log(query);
+      
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
@@ -58,14 +69,37 @@ async function run() {
       res.send(result);
     });
 
+    app.put("/users", async (req, res)=>{
+      const data = req.body;
+      const id = req.query.id;
+      const query = {_id: new ObjectId(id)};
+      const updatdUser = {
+        $set: {
+          role: data.role
+        }
+      }
+      const result = await usersCollection.updateOne(query, updatdUser);
+      res.send(result);
+    })
+
     // study session
     app.get("/study-sessions", async (req, res) => {
       const limit = parseInt(req.query.limit) || null;
       const id = req.query.id;
+      const email = req.query.email;
+      const status = req.query.status || "";
+      
       let query = {};
       if (id) {
         query = { _id: new ObjectId(id) };
       }
+      if(email){
+        query = {tutorEmail : email}
+      }
+      if(status!= ""){
+        query.status = status;
+      }
+
       let cursor = studySessionCollection.find(query);
 
       if (limit) {
@@ -73,13 +107,65 @@ async function run() {
       }
 
       const result = await cursor.toArray();
+      // console.log(email,status, query);
+      // console.log(result, query);
+      
+      
       res.send(result);
     });
+
+    app.get("/all-study-session", async (req, res)=>{
+      const query = {status: {$in : ['pending', 'approved']}}
+      const result = await studySessionCollection.find(query).toArray();
+      res.send(result);
+    })
 
     app.post("/study-sessions", async (req, res)=>{
       const data = req.body;
       const result = await studySessionCollection.insertOne(data);
       res.send(result)
+    })
+
+    app.patch("/study-sessions", async (req, res)=>{
+      const data = req.body;
+      const id = req.query.id;
+      const filter = {_id : new ObjectId(id)};
+      // const filter = {};
+      const updatedStudySession = {
+        $set: {
+          sessionTitle: data?.sessionTitle,
+          sessionDescription: data?.sessionDescription,
+          registrationStartDate: data?.registrationStartDate,
+          registrationEndDate: data?.registrationEndDate,
+          classStartTime: data?.classStartTime,
+          classEndTime: data?.classEndTime,
+          sessionDuration: data?.sessionDuration,
+          registrationFee: data?.registrationFee,
+          status : data?.status
+        }
+      }
+      const result = await studySessionCollection.updateOne(filter , updatedStudySession);
+      res.send(result);
+    })
+    app.put("/study-session/update-status", async (req, res)=>{
+      const data = req.body;
+      const id = req.query.id;
+      const filter = {_id : new ObjectId(id)};
+      const updateSession = {
+        $set: {
+          registrationFee: data?.registrationFee,
+          status : data?.status
+        }
+      }
+      const result = await studySessionCollection.updateOne(filter , updateSession);
+      res.send(result);
+    })
+
+    app.delete("/study-sessions", async (req, res)=>{
+      const id = req.query.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await studySessionCollection.deleteOne(query);
+      res.send(result);
     })
 
     // booked session
