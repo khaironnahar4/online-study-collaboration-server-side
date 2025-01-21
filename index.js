@@ -32,6 +32,7 @@ async function run() {
     const bookedSesssionCollection = database.collection("booked-sessions");
     const reviewCOllection = database.collection("reviews");
     const notesCollection = database.collection("notes");
+    const materialsCollection = database.collection("materials")
 
     // users
     app.get("/users", async (req, res) => {
@@ -147,6 +148,7 @@ async function run() {
       const result = await studySessionCollection.updateOne(filter , updatedStudySession);
       res.send(result);
     })
+
     app.put("/study-session/update-status", async (req, res)=>{
       const data = req.body;
       const id = req.query.id;
@@ -239,7 +241,7 @@ async function run() {
     app.put("/notes/:id", async (req, res) => {
       const id = req.params.id;
       const noteData = req.body;
-      console.log(noteData);
+      // console.log(noteData);
       
       const query = { _id: new ObjectId(id) };
       const updatedNote = {
@@ -256,6 +258,52 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await notesCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // materials
+    app.get("/materials", async (req, res) => {
+      const email = req.query.email;
+      const id = req.query.id;
+      let query = {};
+      if (email) {
+        query = { tutorEmail : email };
+      }
+      if(id) {
+        query = {sessionID : id};
+      }
+      const result = await materialsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+    app.post("/materials", async (req, res)=>{
+      const data = req.body;
+      const result = await materialsCollection.insertOne(data);
+      res.send(result)
+    })
+
+    app.delete('/meterials/:id', async (req, res)=>{
+      const id = req.params.id;
+      const filter = {_id : new ObjectId(id)}
+      const result = await materialsCollection.deleteOne(filter);
+      res.send(result);
+    })
+
+    app.put("/meterials/:id", async (req, res) => {
+      const id = req.params.id;
+      const material = req.body;
+      // console.log(material);
+      
+      const query = { _id: new ObjectId(id) };
+      const updatedMaterial = {
+        $set: {
+          materialTitle: material.materialTitle,
+          image: material.image,
+          link: material.link,
+        },
+      };
+      const result = await notesCollection.updateOne(query, updatedMaterial);
       res.send(result);
     });
 
