@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 
@@ -32,7 +33,65 @@ async function run() {
     const bookedSesssionCollection = database.collection("booked-sessions");
     const reviewCOllection = database.collection("reviews");
     const notesCollection = database.collection("notes");
-    const materialsCollection = database.collection("materials")
+    const materialsCollection = database.collection("materials");
+
+    // verify token middleware
+    const verifyToken = (req, res, next) => {
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "Unauthorized user!" });
+      }
+      // console.log(req.headers.authorization);
+      
+      const token = req.headers.authorization.split(" ")[1];
+      // console.log(token);
+      
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRETE, (err, decoded) => {
+        if (err) {
+          return res.status(403).send({ message: "Forbidden access." });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+
+    // create jwt toke
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRETE, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+
+    // check if user is admin or not
+    app.get("/users/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "Unauthorized admin!" });
+      }
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role == "admin";
+      }
+      res.send({ admin });
+    });
+
+    // check if user is tutor or not
+    app.get("/users/tutor/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "Unauthorized tutor!" });
+      }
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      let tutor = false;
+      if (user) {
+        tutor = user?.role == "tutor";
+      }
+      res.send({ tutor });
+    });
 
     // users
     app.get("/users", async (req, res) => {
@@ -42,17 +101,17 @@ async function run() {
       if (role) {
         query = { role: role };
       }
-      if(search){
+      if (search) {
         query = {
-          $or:[ 
-           { name: new RegExp(search, 'i')},
-           { email: new RegExp(search, 'i')}
-          ]
-        }
+          $or: [
+            { name: new RegExp(search, "i") },
+            { email: new RegExp(search, "i") },
+          ],
+        };
       }
-      console.log(query);
       
       const result = await usersCollection.find(query).toArray();
+      console.log(query, result);
       res.send(result);
     });
 
@@ -70,18 +129,18 @@ async function run() {
       res.send(result);
     });
 
-    app.put("/users", async (req, res)=>{
+    app.put("/users", verifyToken, async (req, res) => {
       const data = req.body;
       const id = req.query.id;
-      const query = {_id: new ObjectId(id)};
+      const query = { _id: new ObjectId(id) };
       const updatdUser = {
         $set: {
-          role: data.role
-        }
-      }
+          role: data.role,
+        },
+      };
       const result = await usersCollection.updateOne(query, updatdUser);
       res.send(result);
-    })
+    });
 
     // study session
     app.get("/study-sessions", async (req, res) => {
@@ -89,15 +148,15 @@ async function run() {
       const id = req.query.id;
       const email = req.query.email;
       const status = req.query.status || "";
-      
+
       let query = {};
       if (id) {
         query = { _id: new ObjectId(id) };
       }
-      if(email){
-        query = {tutorEmail : email}
+      if (email) {
+        query = { tutorEmail: email };
       }
-      if(status!= ""){
+      if (status != "") {
         query.status = status;
       }
 
@@ -108,29 +167,41 @@ async function run() {
       }
 
       const result = await cursor.toArray();
-      // console.log(email,status, query);
+      // console.log(email,status);
       // console.log(result, query);
-      
-      
+
       res.send(result);
     });
 
-    app.get("/all-study-session", async (req, res)=>{
-      const query = {status: {$in : ['pending', 'approved']}}
+    app.get("/study-session/approved", async (req, res) => {
+      const limit = parseInt(req.query.limit) || null;
+      let query = { status: "approved" };
+      let cursor = studySessionCollection.find(query);
+
+      if (limit) {
+        cursor = cursor.limit(limit);
+      }
+
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get("/all-study-session", async (req, res) => {
+      const query = { status: { $in: ["pending", "approved"] } };
       const result = await studySessionCollection.find(query).toArray();
       res.send(result);
-    })
+    });
 
-    app.post("/study-sessions", async (req, res)=>{
+    app.post("/study-sessions", async (req, res) => {
       const data = req.body;
       const result = await studySessionCollection.insertOne(data);
-      res.send(result)
-    })
+      res.send(result);
+    });
 
-    app.patch("/study-sessions", async (req, res)=>{
+    app.patch("/study-sessions", verifyToken, async (req, res) => {
       const data = req.body;
       const id = req.query.id;
-      const filter = {_id : new ObjectId(id)};
+      const filter = { _id: new ObjectId(id) };
       // const filter = {};
       const updatedStudySession = {
         $set: {
@@ -142,36 +213,42 @@ async function run() {
           classEndTime: data?.classEndTime,
           sessionDuration: data?.sessionDuration,
           registrationFee: data?.registrationFee,
-          status : data?.status
-        }
-      }
-      const result = await studySessionCollection.updateOne(filter , updatedStudySession);
+          status: data?.status,
+        },
+      };
+      const result = await studySessionCollection.updateOne(
+        filter,
+        updatedStudySession
+      );
       res.send(result);
-    })
+    });
 
-    app.put("/study-session/update-status", async (req, res)=>{
+    app.put("/study-session/update-status", verifyToken, async (req, res) => {
       const data = req.body;
       const id = req.query.id;
-      const filter = {_id : new ObjectId(id)};
+      const filter = { _id: new ObjectId(id) };
       const updateSession = {
         $set: {
           registrationFee: data?.registrationFee,
-          status : data?.status
-        }
-      }
-      const result = await studySessionCollection.updateOne(filter , updateSession);
+          status: data?.status,
+        },
+      };
+      const result = await studySessionCollection.updateOne(
+        filter,
+        updateSession
+      );
       res.send(result);
-    })
+    });
 
-    app.delete("/study-sessions", async (req, res)=>{
+    app.delete("/study-sessions", verifyToken, async (req, res) => {
       const id = req.query.id;
-      const query = {_id: new ObjectId(id)};
+      const query = { _id: new ObjectId(id) };
       const result = await studySessionCollection.deleteOne(query);
       res.send(result);
-    })
+    });
 
     // booked session
-    app.get("/booked-sessions", async (req, res) => {
+    app.get("/booked-sessions", verifyToken, async (req, res) => {
       const std_email = req.query.std_email;
       let query = {};
       if (std_email) {
@@ -191,7 +268,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/booked-sessions", async (req, res) => {
+    app.post("/booked-sessions", verifyToken, async (req, res) => {
       const data = req.body;
       // check if the session is already booked by the student
       const query = { study_session_id: data.study_session_id };
@@ -211,38 +288,38 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/reviews", async (req, res) => {
+    app.post("/reviews", verifyToken, async (req, res) => {
       const review = req.body;
       const result = await reviewCOllection.insertOne(review);
       res.send(result);
     });
 
     // notes collection
-    app.get("/notes", async (req, res) => {
+    app.get("/notes", verifyToken, async (req, res) => {
       const email = req.query.email;
       const id = req.query.id;
       let query = {};
       if (email) {
         query = { email };
       }
-      if(id) {
-        query = {_id : new ObjectId(id)};
+      if (id) {
+        query = { _id: new ObjectId(id) };
       }
       const result = await notesCollection.find(query).toArray();
       res.send(result);
     });
 
-    app.post("/notes", async (req, res) => {
+    app.post("/notes", verifyToken, async (req, res) => {
       const note = req.body;
       const result = await notesCollection.insertOne(note);
       res.send(result);
     });
 
-    app.put("/notes/:id", async (req, res) => {
+    app.put("/notes/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const noteData = req.body;
       // console.log(noteData);
-      
+
       const query = { _id: new ObjectId(id) };
       const updatedNote = {
         $set: {
@@ -254,7 +331,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/notes/:id", async (req, res) => {
+    app.delete("/notes/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await notesCollection.deleteOne(query);
@@ -262,39 +339,48 @@ async function run() {
     });
 
     // materials
-    app.get("/materials", async (req, res) => {
+    app.get("/materials", verifyToken, async (req, res) => {
       const email = req.query.email;
       const id = req.query.id;
       let query = {};
       if (email) {
-        query = { tutorEmail : email };
+        query = { tutorEmail: email };
       }
-      if(id) {
-        query = {sessionID : id};
+      if (id) {
+        query = { sessionID: id };
       }
       const result = await materialsCollection.find(query).toArray();
       res.send(result);
     });
 
+    app.get("/materials/single-material", verifyToken, async (req, res) => {
+      const id = req.query.id;
+      const query = { _id: new ObjectId(id) };
 
-    app.post("/materials", async (req, res)=>{
+      const result = await materialsCollection.findOne(query);
+      res.send(result);
+    });
+
+    app.post("/materials", verifyToken, async (req, res) => {
       const data = req.body;
       const result = await materialsCollection.insertOne(data);
-      res.send(result)
-    })
-
-    app.delete('/meterials/:id', async (req, res)=>{
-      const id = req.params.id;
-      const filter = {_id : new ObjectId(id)}
-      const result = await materialsCollection.deleteOne(filter);
       res.send(result);
-    })
+    });
 
-    app.put("/meterials/:id", async (req, res) => {
+    app.delete("/meterials/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const result = await materialsCollection.deleteOne(filter);
+      console.log(id, result);
+
+      res.send(result);
+    });
+
+    app.put("/meterials/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const material = req.body;
       // console.log(material);
-      
+
       const query = { _id: new ObjectId(id) };
       const updatedMaterial = {
         $set: {
@@ -303,7 +389,10 @@ async function run() {
           link: material.link,
         },
       };
-      const result = await notesCollection.updateOne(query, updatedMaterial);
+      const result = await materialsCollection.updateOne(
+        query,
+        updatedMaterial
+      );
       res.send(result);
     });
 
