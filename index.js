@@ -129,7 +129,7 @@ async function run() {
       res.send(result);
     });
 
-    app.put("/users", verifyToken, async (req, res) => {
+    app.put("/users", async (req, res) => {
       const data = req.body;
       const id = req.query.id;
       const query = { _id: new ObjectId(id) };
@@ -198,7 +198,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/study-sessions", verifyToken, async (req, res) => {
+    app.patch("/study-sessions",  async (req, res) => {
       const data = req.body;
       const id = req.query.id;
       const filter = { _id: new ObjectId(id) };
@@ -223,7 +223,7 @@ async function run() {
       res.send(result);
     });
 
-    app.put("/study-session/update-status", verifyToken, async (req, res) => {
+    app.put("/study-session/update-status",  async (req, res) => {
       const data = req.body;
       const id = req.query.id;
       const filter = { _id: new ObjectId(id) };
@@ -240,7 +240,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/study-sessions", verifyToken, async (req, res) => {
+    app.delete("/study-sessions",  async (req, res) => {
       const id = req.query.id;
       const query = { _id: new ObjectId(id) };
       const result = await studySessionCollection.deleteOne(query);
@@ -268,7 +268,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/booked-sessions", verifyToken, async (req, res) => {
+    app.post("/booked-sessions",  async (req, res) => {
       const data = req.body;
       // check if the session is already booked by the student
       const query = { study_session_id: data.study_session_id };
@@ -288,7 +288,7 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/reviews", verifyToken, async (req, res) => {
+    app.post("/reviews",  async (req, res) => {
       const review = req.body;
       const result = await reviewCOllection.insertOne(review);
       res.send(result);
@@ -309,13 +309,13 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/notes", verifyToken, async (req, res) => {
+    app.post("/notes",  async (req, res) => {
       const note = req.body;
       const result = await notesCollection.insertOne(note);
       res.send(result);
     });
 
-    app.put("/notes/:id", verifyToken, async (req, res) => {
+    app.put("/notes/:id",  async (req, res) => {
       const id = req.params.id;
       const noteData = req.body;
       // console.log(noteData);
@@ -331,7 +331,7 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/notes/:id", verifyToken, async (req, res) => {
+    app.delete("/notes/:id",  async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await notesCollection.deleteOne(query);
@@ -361,13 +361,13 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/materials", verifyToken, async (req, res) => {
+    app.post("/materials",  async (req, res) => {
       const data = req.body;
       const result = await materialsCollection.insertOne(data);
       res.send(result);
     });
 
-    app.delete("/meterials/:id", verifyToken, async (req, res) => {
+    app.delete("/meterials/:id",  async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const result = await materialsCollection.deleteOne(filter);
@@ -376,7 +376,7 @@ async function run() {
       res.send(result);
     });
 
-    app.put("/meterials/:id", verifyToken, async (req, res) => {
+    app.put("/meterials/:id",  async (req, res) => {
       const id = req.params.id;
       const material = req.body;
       // console.log(material);
@@ -397,7 +397,7 @@ async function run() {
     });
 
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     console.log("You successfully connected to MongoDB!");
